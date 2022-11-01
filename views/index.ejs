@@ -11,7 +11,7 @@
 
 <body>
     <div class="App container text-center">
-        <form action="/" method="POST">
+        <form onSubmit="return confirm('Du genererar nu ett nytt ISBN')" action="/" method="POST">
             <div class="form-group mt-5">
                 <h2>ISBN-generator</h2>
                 <input type="text" id="isbn" value="<%= isbn %>" />
