@@ -67,6 +67,24 @@ app.post("/logout", (req, res) => {
     res.redirect('/login')
 })
 
+app.get("/undo", checkAuthenticated, (req, res) => {
+    res.render('undo', {isbn: "", message: ""});
+})
+
+app.post("/undo", checkAuthenticated, async (req, res) => {
+    const isbn = req.body.isbn;
+    try{
+        const updatedIsbn = await Isbn.findOne({isbn: isbn});
+        updatedIsbn.used = 0;
+        updatedIsbn.save();
+        console.log("isbn set to not used");
+        res.render('undo', {isbn: isbn, message: ""})
+    }catch(err){
+        console.log(err.message);
+        res.render('undo', {isbn:"", message: isbn + " finns ej i databasen."})
+    }
+
+})
 //Add new user
 /* app.get("/newuser", (req, res, next) => {
     let username = "Liber";
