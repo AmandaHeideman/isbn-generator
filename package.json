@@ -21,7 +21,7 @@
     "express-session": "^1.17.3",
     "git": "^0.1.5",
     "jsonwebtoken": "^8.5.1",
-    "mysql": "^2.18.1",
+    "mongoose": "^6.7.0",
     "node-fetch": "^3.2.10",
     "passport": "^0.6.0",
     "passport-local": "^1.0.0"
