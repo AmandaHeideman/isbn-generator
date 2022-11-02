@@ -1,6 +1,4 @@
 const express = require('express');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
 const passport = require('passport');
 const flash = require('express-flash');
 const session = require('express-session');
@@ -9,17 +7,15 @@ const fetch = (...args) =>
 const initializePassport = require('./passport-config');
 require('dotenv').config();
 const { con } = require('./database');
-const fsPromise = require('fs/promises');
 
 const app = express();
-const salt = Number(process.env.SALT);
 const secretToken = process.env.SECRET_TOKEN;
 
 app.set('view engine', 'ejs');
 app.use(express.urlencoded({extended: true}));
 app.use(flash());
 app.use(session({
-    secret: process.env.SECRET_TOKEN,
+    secret: secretToken,
     resave: false,
     saveUninitialized: false
 }))
@@ -34,53 +30,46 @@ initializePassport(
 );
 
 
-let newIsbn;
 
-app.get("/", checkAuthenticated, (req, res) => {
-    res.render('index', {isbn: ""});
-})
+/***** SETUP ******/
 
-app.post("/", checkAuthenticated, (req, res) => {
-    getAllIsbn(res)
-})
+//convert local isbn-list to arrray
+/* const fsPromise = require('fs/promises');
+let isbnArray = [];
+const readFileSync = async () => {
+    try {
+        const list = await fsPromise.readFile('FreeISBNList.txt', 'utf-8');
+        isbnArray = list.split(/\r?\n/);
+    }catch(err){
+        console.log(err);
+    }
+}
+readFileSync(); 
 
-app.get("/login", checkNotAuthenticated, (req, res) => {
-    res.render('login', {error: ""});
-})
-
-app.post("/login",checkNotAuthenticated, passport.authenticate('local', {
-    successRedirect: '/',
-    failureRedirect: '/login',
-    failureFlash: true
-}))
-
-app.post("/logout", (req, res) => {
-    req.logOut();
-    res.redirect('/login')
+//add isbn list to database
+app.get("/add", (res, req) => {
+    for(let i = 0; i<isbnArray.length; i++){
+        addIsbn(isbnArray[i]);
+    }
 }) 
 
-app.get("/undo", checkAuthenticated, (req, res) => {
-    res.render('undo', {isbn: "", message: ""});
-})
-
-app.post("/undo", checkAuthenticated, async (req, res) => {
-    const isbn = req.body.isbn;
+async function addIsbn(newIsbn){
     try{
-        let sql = "UPDATE list SET used = 0 WHERE isbn = '" + isbn + "'";
-        con.query(sql, function (err, result) {
-            if (err) throw err;
-            console.log("Result: " + result);
-          });
-        console.log("isbn set to not used");
-        res.render('undo', {isbn: isbn, message: ""})
-    }catch(err){
-        console.log(err.message);
-        res.render('undo', {isbn:"", message: isbn + " finns ej i databasen."})
+        let sql = "INSERT INTO list (isbn, used) VALUES ('" + newIsbn + "', '0');"
+            con.query(sql, function (err, result) {
+                if (err) throw err;
+                console.log("isbn added:" + newIsbn);
+            });
+    } catch(error){
+        console.log(error.message);
     }
+} */
 
-})
-//Add new user
-/* app.get("/newuser", (req, res, next) => {
+//Create user
+/* const salt = Number(process.env.SALT);
+const bcrypt = require('bcrypt');
+
+app.get("/newuser", (req, res, next) => {
     let username = "Liber";
     let password = "mf%Q#p&q3Y2cio";
 
@@ -96,31 +85,55 @@ app.post("/undo", checkAuthenticated, async (req, res) => {
     });
 }) */
 
-//convert local isbn-list to arrray
-/* let isbnArray = [];
-const readFileSync = async () => {
-    try {
-        const list = await fsPromise.readFile('FreeISBNList.txt', 'utf-8');
-        isbnArray = list.split(/\r?\n/);
-    }catch(err){
-        console.log(err);
-    }
-}
-readFileSync(); */
+/***** ROUTES ******/
 
-//update isbn to used
-async function updateIsbn(isbn){
+//Get generator page
+app.get("/", checkAuthenticated, (req, res) => {
+    res.render('index', {isbn: ""});
+})
+
+//Generate new isbn
+app.post("/", checkAuthenticated, (req, res) => {
+    getAllIsbn(res)
+})
+
+//Get login page
+app.get("/login", checkNotAuthenticated, (req, res) => {
+    res.render('login', {error: ""});
+})
+
+//Login user
+app.post("/login",checkNotAuthenticated, passport.authenticate('local', {
+    successRedirect: '/',
+    failureRedirect: '/login',
+    failureFlash: true
+}))
+
+//Get undo ISBN page
+app.get("/undo", checkAuthenticated, (req, res) => {
+    res.render('undo', {isbn: "", message: ""});
+})
+
+//Undo ISBN
+app.post("/undo", checkAuthenticated, async (req, res) => {
+    const isbn = req.body.isbn;
     try{
-        let sql = "UPDATE list SET used = 1 WHERE isbn = '" + isbn + "'";
+        let sql = "UPDATE list SET used = 0 WHERE isbn = '" + isbn + "'";
         con.query(sql, function (err, result) {
             if (err) throw err;
-            console.log("isbn set to used");
           });
+        console.log("isbn set to not used");
+        res.render('undo', {isbn: isbn, message: ""})
     }catch(err){
         console.log(err.message);
+        res.render('undo', {isbn:"", message: isbn + " finns ej i databasen."})
     }
-}
 
+})
+
+/***** FUNCTIONS *****/  
+
+let newIsbn;
 //get the first 25 unused isbn from database
 async function getAllIsbn(res){
         try{
@@ -169,25 +182,20 @@ async function checkIsbn(isbn){
     return (records);
 }
 
-//add isbn list to database
-/* app.get("/add", (res, req) => {
-    for(let i = 0; i<isbnArray.length; i++){
-        addIsbn(isbnArray[i]);
-    }
-}) */
-
-async function addIsbn(newIsbn){
+//update isbn to used
+async function updateIsbn(isbn){
     try{
-        let sql = "INSERT INTO list (isbn, used) VALUES ('" + newIsbn + "', '0');"
-            con.query(sql, function (err, result) {
-                if (err) throw err;
-                console.log("isbn added:" + newIsbn);
-            });
-    } catch(error){
-        console.log(error.message);
+        let sql = "UPDATE list SET used = 1 WHERE isbn = '" + isbn + "'";
+        con.query(sql, function (err, result) {
+            if (err) throw err;
+            console.log("isbn set to used");
+          });
+    }catch(err){
+        console.log(err.message);
     }
 }
 
+//Check if user is logged in
 function checkAuthenticated(req, res, next){
     if(req.isAuthenticated()){
         return next();
@@ -197,6 +205,7 @@ function checkAuthenticated(req, res, next){
     }
 }
 
+//Check if user is not logged in
 function checkNotAuthenticated(req, res, next){
     if(req.isAuthenticated()){
         return res.redirect('/');
@@ -206,7 +215,7 @@ function checkNotAuthenticated(req, res, next){
     }
 }
 
-
+//Get user id
 async function getUserId(id){
     try{
         let sql = "SELECT * FROM users WHERE id = " + id;
